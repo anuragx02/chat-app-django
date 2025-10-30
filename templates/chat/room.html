@@ -1,0 +1,322 @@
+{% extends "base/base.html" %}
+
+{% block title %}{{ room.name }} - Chat App{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-wrapper {
+        height: calc(100vh - 200px);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background-color: #f8f9fa;
+    }
+    
+    .message {
+        margin-bottom: 15px;
+        clear: both;
+    }
+    
+    .message.own {
+        text-align: right;
+    }
+    
+    .message-bubble {
+        display: inline-block;
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        word-wrap: break-word;
+    }
+    
+    .message.own .message-bubble {
+        background-color: #0d6efd;
+        color: white;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .message.other .message-bubble {
+        background-color: white;
+        border-bottom-left-radius: 5px;
+        box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    
+    .message-sender {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+    
+    .message.own .message-sender {
+        color: #0d6efd;
+    }
+    
+    .message.other .message-sender {
+        color: #6c757d;
+    }
+    
+    .chat-input-area {
+        padding: 15px;
+        background-color: white;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .typing-indicator {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-style: italic;
+        padding: 5px 15px;
+        min-height: 25px;
+    }
+    
+    .member-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid chat-container">
+    <div class="row">
+        <!-- Chat Area -->
+        <div class="col-md-9">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-{% if room.room_type == 'private' %}person-fill{% else %}people-fill{% endif %}"></i>
+                            {{ room.name }}
+                        </h5>
+                        <a href="{% url 'chat:lobby' %}" class="btn btn-sm btn-light">
+                            <i class="bi bi-arrow-left"></i> Back to Lobby
+                        </a>
+                    </div>
+                    {% if room.description %}
+                    <small>{{ room.description }}</small>
+                    {% endif %}
+                </div>
+                
+                <div class="chat-wrapper">
+                    <!-- Messages -->
+                    <div class="chat-messages" id="chatMessages">
+                        {% for message in messages %}
+                        <div class="message {% if message.sender == user %}own{% else %}other{% endif %}">
+                            {% if message.sender != user %}
+                            <div class="message-sender">{{ message.sender.username }}</div>
+                            {% endif %}
+                            <div class="message-bubble">
+                                {{ message.content }}
+                                <div class="message-time mt-1">
+                                    {{ message.created_at|date:"H:i" }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Typing Indicator -->
+                    <div class="typing-indicator" id="typingIndicator"></div>
+                    
+                    <!-- Input Area -->
+                    <div class="chat-input-area">
+                        <form id="chatForm">
+                            <div class="input-group">
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="messageInput" 
+                                       placeholder="Type a message..." 
+                                       autocomplete="off">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-send-fill"></i> Send
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Members Sidebar -->
+        <div class="col-md-3">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-people"></i> Members ({{ memberships|length }})
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="member-list">
+                        {% for membership in memberships %}
+                        <div class="list-group-item">
+                            <div class="d-flex align-items-center">
+                                {% if membership.user.avatar %}
+                                    <img src="{{ membership.user.avatar.url }}" alt="{{ membership.user.username }}" class="avatar avatar-sm me-2">
+                                {% else %}
+                                    <i class="bi bi-person-circle fs-4 me-2"></i>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    <div>{{ membership.user.username }}</div>
+                                    <small class="text-muted">
+                                        {% if membership.user.is_online %}
+                                            <span class="online-indicator"></span> Online
+                                        {% else %}
+                                            <span class="offline-indicator"></span> Offline
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                {% if membership.role == 'admin' %}
+                                <span class="badge bg-warning text-dark">Admin</span>
+                                {% elif membership.role == 'moderator' %}
+                                <span class="badge bg-info">Mod</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const roomSlug = "{{ room.slug }}";
+    const currentUser = "{{ user.username }}";
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/chat/${roomSlug}/`;
+    
+    let chatSocket;
+    let typingTimer;
+    const typingDelay = 1000;
+    
+    // Initialize WebSocket
+    function connectWebSocket() {
+        chatSocket = new WebSocket(wsUrl);
+        
+        chatSocket.onopen = function(e) {
+            console.log('WebSocket connected');
+        };
+        
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            
+            if (data.type === 'chat_message') {
+                addMessage(data.message);
+            } else if (data.type === 'user_status') {
+                showUserStatus(data.username, data.status);
+            } else if (data.type === 'typing_indicator') {
+                showTypingIndicator(data.username, data.is_typing);
+            }
+        };
+        
+        chatSocket.onclose = function(e) {
+            console.log('WebSocket disconnected');
+            // Attempt to reconnect after 3 seconds
+            setTimeout(connectWebSocket, 3000);
+        };
+        
+        chatSocket.onerror = function(e) {
+            console.error('WebSocket error:', e);
+        };
+    }
+    
+    // Add message to chat
+    function addMessage(message) {
+        const messagesDiv = document.getElementById('chatMessages');
+        const isOwnMessage = message.sender === currentUser;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isOwnMessage ? 'own' : 'other'}`;
+        
+        const time = new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        messageDiv.innerHTML = `
+            ${!isOwnMessage ? `<div class="message-sender">${message.sender}</div>` : ''}
+            <div class="message-bubble">
+                ${message.content}
+                <div class="message-time mt-1">${time}</div>
+            </div>
+        `;
+        
+        messagesDiv.appendChild(messageDiv);
+        scrollToBottom();
+    }
+    
+    // Show user status
+    function showUserStatus(username, status) {
+        console.log(`${username} ${status}`);
+    }
+    
+    // Show typing indicator
+    function showTypingIndicator(username, isTyping) {
+        const indicator = document.getElementById('typingIndicator');
+        if (isTyping) {
+            indicator.textContent = `${username} is typing...`;
+        } else {
+            indicator.textContent = '';
+        }
+    }
+    
+    // Scroll to bottom
+    function scrollToBottom() {
+        const messagesDiv = document.getElementById('chatMessages');
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    // Send message
+    document.getElementById('chatForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim();
+        
+        if (message && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                'type': 'text',
+                'content': message
+            }));
+            
+            messageInput.value = '';
+            
+            // Send stop typing indicator
+            chatSocket.send(JSON.stringify({
+                'type': 'typing',
+                'is_typing': false
+            }));
+        }
+    });
+    
+    // Typing indicator
+    document.getElementById('messageInput').addEventListener('input', function() {
+        if (chatSocket.readyState === WebSocket.OPEN) {
+            clearTimeout(typingTimer);
+            
+            // Send typing indicator
+            chatSocket.send(JSON.stringify({
+                'type': 'typing',
+                'is_typing': true
+            }));
+            
+            // Set timer to send stop typing
+            typingTimer = setTimeout(function() {
+                chatSocket.send(JSON.stringify({
+                    'type': 'typing',
+                    'is_typing': false
+                }));
+            }, typingDelay);
+        }
+    });
+    
+    // Initialize
+    connectWebSocket();
+    scrollToBottom();
+</script>
+{% endblock %}

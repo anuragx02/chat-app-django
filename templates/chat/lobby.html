@@ -1,0 +1,116 @@
+{% extends "base/base.html" %}
+
+{% block title %}Lobby - Chat App{% endblock %}
+
+{% block content %}
+<div class="container chat-container">
+    <div class="row">
+        <!-- Rooms List -->
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-chat-left-text"></i> My Chat Rooms
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if rooms %}
+                        <div class="list-group">
+                            {% for room in rooms %}
+                            <a href="{% url 'chat:room' room.slug %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        {% if room.image %}
+                                            <img src="{{ room.image.url }}" alt="{{ room.name }}" class="avatar me-3">
+                                        {% else %}
+                                            <i class="bi bi-{% if room.room_type == 'private' %}person-fill{% else %}people-fill{% endif %} fs-3 me-3"></i>
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-1">{{ room.name }}</h6>
+                                            <small class="text-muted">
+                                                <i class="bi bi-people"></i> {{ room.member_count }} member{{ room.member_count|pluralize }}
+                                                <span class="ms-2">
+                                                    <i class="bi bi-tag"></i> 
+                                                    {% if room.room_type == 'private' %}Private{% else %}Group{% endif %}
+                                                </span>
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-chat-left-text text-muted" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">You haven't joined any rooms yet.</p>
+                            <a href="{% url 'chat:create_room' %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Create Your First Room
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Create Room -->
+            <div class="card shadow mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">
+                        <i class="bi bi-plus-circle"></i> New Room
+                    </h5>
+                    <p class="card-text small text-muted">Create a new chat room</p>
+                    <a href="{% url 'chat:create_room' %}" class="btn btn-primary btn-sm w-100">
+                        Create Room
+                    </a>
+                </div>
+            </div>
+
+            <!-- Quick Chat -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-chat-dots"></i> Start Private Chat
+                    </h6>
+                </div>
+                <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
+                    {% if available_users %}
+                        <div class="list-group list-group-flush">
+                            {% for other_user in available_users %}
+                            <a href="{% url 'chat:private_chat' other_user.id %}" class="list-group-item list-group-item-action">
+                                <div class="d-flex align-items-center">
+                                    {% if other_user.avatar %}
+                                        <img src="{{ other_user.avatar.url }}" alt="{{ other_user.username }}" class="avatar avatar-sm me-2">
+                                    {% else %}
+                                        <i class="bi bi-person-circle fs-4 me-2"></i>
+                                    {% endif %}
+                                    <div>
+                                        <div>{{ other_user.username }}</div>
+                                        <small class="text-muted">
+                                            {% if other_user.is_online %}
+                                                <span class="online-indicator"></span> Online
+                                            {% else %}
+                                                <span class="offline-indicator"></span> Offline
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <small class="text-muted">No users available</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base/base.html" %}
+
+{% block title %}Create Room - Chat App{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-center mb-4">
+                        <i class="bi bi-plus-circle"></i> Create New Room
+                    </h2>
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Room Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required autofocus>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="room_type" class="form-label">Room Type *</label>
+                            <select class="form-select" id="room_type" name="room_type" required>
+                                <option value="group" selected>Group Chat</option>
+                                <option value="private">Private Chat</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="members" class="form-label">Add Members (Optional)</label>
+                            <select class="form-select" id="members" name="members" multiple size="5">
+                                {% for other_user in available_users %}
+                                <option value="{{ other_user.id }}">{{ other_user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple members</small>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Create Room
+                            </button>
+                            <a href="{% url 'chat:lobby' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
