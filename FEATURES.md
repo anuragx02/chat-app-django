@@ -231,7 +231,7 @@
 - **Framework**: Django 4.2
 - **Real-time**: Django Channels 4.0
 - **API**: Django REST Framework 3.14
-- **Authentication**: Django Allauth, JWT
+- **Authentication**: Custom Django auth with JWT support, Django Allauth (configured for future social auth)
 - **Database ORM**: Django ORM
 
 ### Infrastructure
