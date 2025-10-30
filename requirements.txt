@@ -1,0 +1,36 @@
+# Core Django
+Django>=4.2,<5.0
+python-decouple>=3.8
+
+# Django Channels for WebSocket support
+channels>=4.0.0
+channels-redis>=4.1.0
+daphne>=4.0.0
+
+# Django REST Framework
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.3.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Redis for Channels layer
+redis>=5.0.0
+
+# Image handling
+Pillow>=10.0.0
+
+# CORS headers
+django-cors-headers>=4.3.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Authentication
+django-allauth>=0.57.0
+
+# Security
+cryptography>=41.0.0
+
+# Utilities
+python-dateutil>=2.8.2
